@@ -850,6 +850,7 @@ namespace Server.MirObjects
         }
         public virtual void RefreshNameColour(bool send = true)
         {
+            if (Envir.Valor.IsObjective(this)) return;
             if (ShockTime < Envir.Time) BindingShotCenter = false;
 
             Color colour = Color.White;
@@ -931,6 +932,11 @@ namespace Server.MirObjects
         //use this so you can have mobs take no/reduced poison damage
         public virtual void PoisonDamage(int amount, MapObject Attacker)
         {
+            if (Envir.Valor.IsObjective(this))
+            {
+                if (!Envir.Valor.CanAttackObjective(this, Attacker)) return;
+                if (amount < 0) Envir.Valor.RecordDamage(this, Attacker);
+            }
             ChangeHP(amount);
         }
 
@@ -966,6 +972,7 @@ namespace Server.MirObjects
         public override void Die()
         {
             if (Dead) return;
+            if (Envir.Valor.OnMonsterDeath(this)) return;
 
             HP = 0;
             Dead = true;
@@ -2431,7 +2438,9 @@ namespace Server.MirObjects
         {
             if (attacker == null || attacker.Node == null) return false;
             if (Dead) return false;
+            if (Envir.Valor.IsObjective(this)) return Envir.Valor.CanAttackObjective(this, attacker);
             if (Master == null) return true;
+            if (Envir.Valor.TryGetPetRelationship(this, attacker, out bool valorPetAttack)) return valorPetAttack;
 
             if (attacker.Race == ObjectType.Hero)
                 attacker = ((HeroObject)attacker).Owner;
@@ -2467,6 +2476,8 @@ namespace Server.MirObjects
             if (attacker == null || attacker.Node == null) return false;
             if (Dead || attacker == this) return false;
             if (attacker.Race == ObjectType.Creature) return false;
+            if (Envir.Valor.IsObjective(this)) return Envir.Valor.CanAttackObjective(this, attacker);
+            if (Envir.Valor.TryGetPetRelationship(this, attacker, out bool valorPetAttack)) return valorPetAttack;
 
             if (attacker.Info.AI == 6 || attacker.Info.AI == 113) // Guard
             {
@@ -2568,6 +2579,7 @@ namespace Server.MirObjects
 
         public override int Attacked(HumanObject attacker, int damage, DefenceType type = DefenceType.ACAgility, bool damageWeapon = true)
         {
+            if (Envir.Valor.IsObjective(this) && !Envir.Valor.CanAttackObjective(this, attacker)) return 0;
             if (Target == null && attacker.IsAttackTarget(this))
             {
                 Target = attacker;
@@ -2679,12 +2691,14 @@ namespace Server.MirObjects
 
             BroadcastDamageIndicator(DamageType.Hit, armour - damage);
 
+            Envir.Valor.RecordDamage(this, attacker);
             ChangeHP(armour - damage);
             return damage - armour;
         }
 
         public override int Attacked(MonsterObject attacker, int damage, DefenceType type = DefenceType.ACAgility)
         {
+            if (Envir.Valor.IsObjective(this) && !Envir.Valor.CanAttackObjective(this, attacker)) return 0;
             if (Target == null && attacker.IsAttackTarget(this))
                 Target = attacker;
 
@@ -2743,6 +2757,7 @@ namespace Server.MirObjects
 
             BroadcastDamageIndicator(DamageType.Hit, armour - damage);
 
+            Envir.Valor.RecordDamage(this, attacker);
             ChangeHP(armour - damage);
             return damage - armour;
         }

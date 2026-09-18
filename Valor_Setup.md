@@ -15,16 +15,14 @@ packets, HUD, scoreboard, honor currency and NPC actions.
 3. Leave `NoFight`, `NoTeleport` and `RequiredGroup` off. Enable `NoMount`,
    `NoRandom`, `NoRecall`, `NoEscape`, `NoTownTeleport`, `NoDropPlayer` and
    `NoDropMonster`. Set `NoReconnect` with return map `0`. Make small safe zones
-   at the team spawns only; keep monument and buffer locations outside safe zones.
+   at the team spawns only; keep monument and monster wave locations outside safe zones.
    The event also prevents spawn zones from replacing a player's town bind.
-4. Create the five monster **database indices** below. If your supplied IDs mean
-   Appearance values, also set each matching Appearance in the editor; the event
-   looks up database indices 575–579. Valor overrides monument HP when they spawn:
-   Sun 300, Moon 100 and Lightning 100. Configure AC/MAC for your server's damage
-   scale and the buffer monsters' HP in the database. Database HP must be positive.
-   The event supplies stationary, passive AI;
-   normal XP, drops, quests and death scripts are suppressed for these spawned
-   objectives. Do not add permanent respawns for these five event monsters.
+4. Create the three monument **database indices** below. The event looks up indices
+   575–577 and overrides their HP: Sun 300, Moon 100 and Lightning 100. The monument
+   AI is stationary and passive. Also create monster templates with positive HP and
+   the exact names in the wave list below, including `MinotaurKing`. The event uses
+   normal monster AI for waves and bosses; event spawns do not award normal XP,
+   drops, quests or death scripts. Do not add permanent map respawns for them.
 5. Keep `Data/Title.Lib` (image 725) and `Data/Prguse2.Lib` (Valor HUD images
    969–1121) in the client. Update both Shared.dll and the
    server/client executables together because the new packet is used by both.
@@ -41,8 +39,18 @@ packets, HUD, scoreboard, honor currency and NPC actions.
 | SunMonument | 575 | 201,198 |
 | MoonMonument | 576 | 77,196 |
 | LightningMonument | 577 | 324,207 |
-| RedTeamBuffer | 578 | 339,122 |
-| BlueTeamBuffer | 579 | 64,281 |
+| Red side wave and MinotaurKing | Name lookup | Around 339,122 |
+| Blue side wave and MinotaurKing | Name lookup | Around 64,281 |
+
+The server requires one template for each name: `RedBoar`, `BlackBoar`, `Zombie1`,
+`Zombie2`, `Zombie3`, `Zombie4`, `IceMinotaur`, `Minotaur`, `FlamingWooma`,
+`WoomaSoldier`, `VioletKekTal`, `BlueHoroBlaster`, `GiantRat`, `WedgeMoth`, `Tongs`,
+`BlackMaggot`, `GiantWorm`, `WhimperingBee`, and `MinotaurKing`. Monster database
+indices 578 and 579 are no longer required. The regular monsters use available
+walkable cells within 12 cells of each supplied side point; ensure room for 18
+monsters outside safe zones on each side. The translated image refers to six
+locations, but only the two side coordinates have been supplied; the wave uses
+those two centers until the other precise coordinates are available.
 
 ## Registration NPC script
 
@@ -97,9 +105,17 @@ Player commands: **`@ValorLeave`** withdraws/leaves; **`@ValorHonor`** displays 
   faction score. A player earns once per tick even if multiple monument areas overlap.
   Dead players and players on other maps earn nothing. No backlog points are awarded
   after a server stall using the current ownership.
-- One buffer spawns at each supplied location at match start. Each respawns three
-  minutes after its death. Either faction can claim either buffer; the actual final
-  damage source, including a hero/pet/poison source, determines the player rewarded.
+- At battle start, each side receives 18 regular monsters, one of each listed name.
+  Their HUD number starts at 18 and drops on each kill. Once all 18 on a side die,
+  `MinotaurKing` appears at that side's center. The boss does not respawn. A fresh
+  wave starts at the 10 minute mark, replacing any monsters or boss left from the
+  first wave; no additional waves spawn.
+- The final hitter of a regular monster gains a random 1–3 personal points; no other
+  player receives those points. Killing the boss awards 15 personal points and a
+  five minute Valor buff to each living, nearby member of the killer's faction.
+  Personal awards contribute once per recipient to faction score. Hero, pet and
+  poison damage sources resolve to their owning player. Boss proximity defaults to
+  8 cells (maximum axis distance) and is adjustable with `BufferRadius`.
 - Death revives a player after two seconds at their team spawn, without the normal
   revival prompt, death drops, or murder penalties. No release NPC is needed.
 - Attack mode is locked to Valor. Enemy factions can fight; faction allies cannot.
@@ -110,15 +126,16 @@ Player commands: **`@ValorLeave`** withdraws/leaves; **`@ValorHonor`** displays 
 - The HUD shows faction scores, a timer, monument damage/health and the attacking
   faction's icon. Score fills reach full width at 7,500 points. Click the HUD to open
   the 15-row paginated scoreboard using `Title.Lib` 725. The scoreboard shows English
-  headers and live personal score/kills/deaths. End results display completion/victory
+  headers and live personal score/kills/deaths. The two numbers beneath the team
+  figures count remaining regular wave monsters on each side. End results display completion/victory
   bonuses and persistent Honor balances. Close the sheet with Escape or its top-right
   button. Update the client, server and Shared.dll together when the Valor packet changes.
 
 ## Adjustable defaults, not verified Korean values
 
 The supplied translated guide/screenshot does **not** specify the scoring interval,
-individual point amount/radius, monster count, buff values/duration, exact Honor
-formula, reward prices, tie handling or respawn delay. The implementation uses:
+individual point amount/radius, buff values/proximity, exact Honor formula, reward
+prices, tie handling or player respawn delay. The implementation uses:
 
 | Setting | Default |
 | --- | --- |
@@ -128,7 +145,8 @@ formula, reward prices, tie handling or respawn delay. The implementation uses:
 | Completion Honor | 50 |
 | Victory Honor | 100 additional |
 | Buffer stats | +10 min/max DC, MC, SC, AC and MAC |
-| Buffer duration | 60 seconds; replaced on another buffer kill, removed on death/exit |
+| Boss buff range | 8 cells, configurable with `BufferRadius` |
+| Buffer duration | 300 seconds; replaced on another boss kill, removed on death/exit |
 
 Honor is **per character**, capped at 200,000. Completers receive personal score +
 50, with another 100 for winners. Leavers receive personal score only. Kills/deaths
@@ -161,5 +179,6 @@ through the same existing character database persistence.
 
 Testing requires your map/assets/database: register two players,
 capture/re-capture all three monuments, verify score ticks and ally protection,
-kill both buffers, die/respawn, leave/logout, complete a match and reconnect to
+kill 18 regular monsters on each side, verify both boss rewards, check the second
+wave at 10 minutes, die/respawn, leave/logout, complete a match and reconnect to
 verify Honor, then test a configured reward with full/empty inventory.

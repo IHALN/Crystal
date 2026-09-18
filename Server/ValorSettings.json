@@ -6,7 +6,8 @@
   "MonumentRadius": 8,
   "CompletionHonor": 50,
   "VictoryHonor": 100,
-  "BufferDurationSeconds": 60,
+  "BufferDurationSeconds": 300,
+  "BufferRadius": 8,
   "BufferAttackBonus": 10,
   "BufferDefenceBonus": 10,
   "Rewards": []

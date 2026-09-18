@@ -40,6 +40,10 @@ namespace Server.MirEnvir
         private sealed class Objective
         {
             public int Id;
+            public string Name;
+            public ValorTeam Side;
+            public bool Regular, Boss;
+            public bool BossSpawned;
             public Point Location;
             public MonsterObject Monster;
             public ValorTeam Owner;
@@ -55,15 +59,23 @@ namespace Server.MirEnvir
             new Objective { Id = 576, Location = new Point(77, 196) },
             new Objective { Id = 577, Location = new Point(324, 207) }
         };
-        private readonly Objective[] _buffers = {
-            new Objective { Id = 578, Location = new Point(339, 122) },
-            new Objective { Id = 579, Location = new Point(64, 281) }
+        private static readonly string[] WaveMonsterNames = {
+            "RedBoar", "BlackBoar", "Zombie1", "Zombie2", "Zombie3", "Zombie4",
+            "IceMinotaur", "Minotaur", "FlamingWooma", "WoomaSoldier", "VioletKekTal",
+            "BlueHoroBlaster", "GiantRat", "WedgeMoth", "Tongs", "BlackMaggot",
+            "GiantWorm", "WhimperingBee"
         };
+        private readonly Objective[] _bosses = {
+            new Objective { Name = "MinotaurKing", Side = ValorTeam.Red, Boss = true, Location = new Point(339, 122) },
+            new Objective { Name = "MinotaurKing", Side = ValorTeam.Blue, Boss = true, Location = new Point(64, 281) }
+        };
+        private readonly List<Objective> _waveMonsters = new List<Objective>();
         private readonly ValorHonorStore _honor = new ValorHonorStore();
         private ValorSettings _settings;
         private Map _map;
         private Phase _phase;
-        private long _ends, _scoreAt, _statusAt, _settleAt;
+        private long _ends, _scoreAt, _statusAt, _settleAt, _secondWaveAt;
+        private int _waveNumber;
         private int _redScore, _blueScore;
         private ValorTeam _winner;
         private bool _returning;
@@ -127,7 +139,8 @@ namespace Server.MirEnvir
             return null;
         }
 
-        private Objective Find(MonsterObject monster) => _monuments.Concat(_buffers).FirstOrDefault(o => o.Monster == monster);
+        private Objective Find(MonsterObject monster) => _monuments.Concat(_bosses).Concat(_waveMonsters)
+            .FirstOrDefault(o => o.Monster == monster);
         public bool IsObjective(MonsterObject monster) { lock (_sync) return monster != null && Find(monster) != null; }
         public bool CanAttackObjective(MonsterObject monster, MapObject source)
         {
@@ -166,19 +179,31 @@ namespace Server.MirEnvir
                     }
                     objective.RespawnAt = World.Time + 1000;
                 }
-                else
+                else if (objective.Regular)
                 {
-                    // One buffer at each supplied spawn point; each group therefore has one member.
-                    objective.RespawnAt = World.Time + 180000;
                     if (valid)
                     {
-                        killer.AddBuff(BuffType.Valor, killer, _settings.BufferDurationSeconds * 1000,
+                        int points = World.Random.Next(1, 4);
+                        AwardPersonal(killer, points);
+                        killer.ReceiveChat($"Valor: +{points} personal score.", ChatType.System);
+                    }
+                }
+                else if (objective.Boss && valid)
+                {
+                    ValorTeam team = _members[killer].Team;
+                    foreach (var member in _members.Values)
+                    {
+                        var ally = member.Player;
+                        if (member.Team != team || !IsParticipant(ally) || ally.Dead
+                            || Functions.MaxDistance(ally.CurrentLocation, objective.Location) > _settings.BufferRadius) continue;
+                        AwardPersonal(ally, 15);
+                        ally.AddBuff(BuffType.Valor, ally, _settings.BufferDurationSeconds * 1000,
                             new Stats { [Stat.MinDC] = _settings.BufferAttackBonus, [Stat.MaxDC] = _settings.BufferAttackBonus,
                                 [Stat.MinMC] = _settings.BufferAttackBonus, [Stat.MaxMC] = _settings.BufferAttackBonus,
                                 [Stat.MinSC] = _settings.BufferAttackBonus, [Stat.MaxSC] = _settings.BufferAttackBonus,
                                 [Stat.MinAC] = _settings.BufferDefenceBonus, [Stat.MaxAC] = _settings.BufferDefenceBonus,
                                 [Stat.MinMAC] = _settings.BufferDefenceBonus, [Stat.MaxMAC] = _settings.BufferDefenceBonus });
-                        killer.ReceiveChat("Valor buffer acquired.", ChatType.System);
+                        ally.ReceiveChat("Valor: +15 personal score and a five minute buff.", ChatType.System);
                     }
                 }
                 monster.HP = 0;
@@ -187,8 +212,23 @@ namespace Server.MirEnvir
                 RemoveMonster(monster);
                 objective.Monster = null;
                 objective.LastDamager = null;
+                if (objective.Regular)
+                {
+                    _waveMonsters.Remove(objective);
+                    if (!_waveMonsters.Any(o => o.Side == objective.Side)) SpawnBoss(objective.Side);
+                }
+                if (_redScore >= 7500 || _blueScore >= 7500) { Finish(); return true; }
+                SendStatus(true);
                 return true;
             }
+        }
+
+        private void AwardPersonal(PlayerObject player, int points)
+        {
+            _members[player].Personal += points;
+            // Personal points also contribute to the faction's victory score, once per recipient.
+            if (_members[player].Team == ValorTeam.Red) _redScore += points;
+            else _blueScore += points;
         }
 
         private bool Configure(PlayerObject requester)
@@ -198,12 +238,18 @@ namespace Server.MirEnvir
                 _settings = ValorSettings.Load();
                 _map = World.GetMapByNameAndInstance(_settings.MapFileName);
                 if (_map == null || !_map.ValidPoint(BlueSpawn) || !_map.ValidPoint(RedSpawn)
-                    || _monuments.Concat(_buffers).Any(o => !_map.ValidPoint(o.Location) || World.GetMonsterInfo(o.Id) == null
-                        || World.GetMonsterInfo(o.Id).Stats[Stat.HP] <= 0))
-                    throw new InvalidDataException("Configure valor map, valid spawn cells and monster database IDs 575–579.");
+                    || _monuments.Any(o => !_map.ValidPoint(o.Location) || World.GetMonsterInfo(o.Id) == null
+                        || World.GetMonsterInfo(o.Id).Stats[Stat.HP] <= 0)
+                    || _bosses.Any(o => !_map.ValidPoint(o.Location)))
+                    throw new InvalidDataException("Configure valor map, spawn cells and monument database IDs 575–577.");
+                var missing = WaveMonsterNames.Concat(new[] { "MinotaurKing" })
+                    .Where(name => World.GetMonsterInfo(name) == null || World.GetMonsterInfo(name).Stats[Stat.HP] <= 0)
+                    .ToList();
+                if (missing.Count != 0)
+                    throw new InvalidDataException("Valor requires monster templates with HP: " + string.Join(", ", missing));
                 if (_map.Info.NoFight || _map.Info.RequiredGroup || _map.Info.NoTeleport)
                     throw new InvalidDataException("Valor map must allow fighting and teleporting and must not require a group.");
-                if (_map.Info.SafeZones.Any(z => _monuments.Concat(_buffers).Any(o => Functions.InRange(z.Location, o.Location, z.Size))))
+                if (_map.Info.SafeZones.Any(z => _monuments.Concat(_bosses).Any(o => Functions.InRange(z.Location, o.Location, z.Size))))
                     throw new InvalidDataException("Keep objective locations outside safe zones.");
                 _honor.Get(requester.Info.Index);
                 return true;
@@ -397,7 +443,15 @@ namespace Server.MirEnvir
                 if (World.Time >= _ends || !_members.Values.Any(m => m.Team == ValorTeam.Red)
                     || !_members.Values.Any(m => m.Team == ValorTeam.Blue))
                 { Finish(); return; }
-                foreach (var objective in _monuments.Concat(_buffers))
+                if (_waveNumber == 1 && World.Time >= _secondWaveAt)
+                {
+                    if (!StartWave(2)) { Cancel("Valor cancelled: the second monster wave could not spawn."); return; }
+                    Announce("Valor: the second monster wave has appeared!");
+                    SendStatus(true);
+                }
+                foreach (var boss in _bosses)
+                    if (!boss.BossSpawned && !_waveMonsters.Any(o => o.Side == boss.Side)) SpawnBoss(boss.Side);
+                foreach (var objective in _monuments)
                 {
                     if (objective.Monster == null && World.Time >= objective.RespawnAt && !SpawnObjective(objective))
                         objective.RespawnAt = World.Time + 1000;
@@ -445,14 +499,67 @@ namespace Server.MirEnvir
             return true;
         }
 
+        private bool SpawnBoss(ValorTeam side)
+        {
+            var boss = _bosses.First(o => o.Side == side);
+            if (boss.Monster != null) return true;
+            var monster = new MonsterObject(World.GetMonsterInfo(boss.Name));
+            if (!monster.Spawn(_map, boss.Location)) return false;
+            boss.Monster = monster;
+            boss.BossSpawned = true;
+            boss.LastDamager = null;
+            Announce($"Valor: MinotaurKing has appeared on the {side} side!");
+            return true;
+        }
+
+        private bool StartWave(int number)
+        {
+            foreach (var objective in _waveMonsters) RemoveMonster(objective.Monster);
+            _waveMonsters.Clear();
+            foreach (var boss in _bosses) { RemoveMonster(boss.Monster); boss.Monster = null; boss.LastDamager = null; boss.BossSpawned = false; }
+            foreach (var boss in _bosses)
+            {
+                var used = new HashSet<Point>();
+                foreach (var name in WaveMonsterNames)
+                {
+                    Point location = FindWaveLocation(boss.Location, used);
+                    if (location == Point.Empty) return false;
+                    var objective = new Objective { Name = name, Side = boss.Side, Regular = true, Location = location };
+                    var monster = new MonsterObject(World.GetMonsterInfo(name));
+                    if (!monster.Spawn(_map, location)) return false;
+                    objective.Monster = monster;
+                    _waveMonsters.Add(objective);
+                    used.Add(location);
+                }
+            }
+            _waveNumber = number;
+            return true;
+        }
+
+        private Point FindWaveLocation(Point center, HashSet<Point> used)
+        {
+            for (int radius = 1; radius <= 12; radius++)
+                for (int y = -radius; y <= radius; y++)
+                    for (int x = -radius; x <= radius; x++)
+                    {
+                        if (Math.Max(Math.Abs(x), Math.Abs(y)) != radius) continue;
+                        var point = new Point(center.X + x, center.Y + y);
+                        if (_map.ValidPoint(point) && !used.Contains(point)
+                            && !_map.Info.SafeZones.Any(z => Functions.InRange(z.Location, point, z.Size)))
+                            return point;
+                    }
+            return Point.Empty;
+        }
+
         private void Start()
         {
             _applications.RemoveAll(p => p.Node == null || p.Dead || IsMap(p.CurrentMap));
             if (_applications.Count < 2) { Cancel("Valor cancelled: fewer than two eligible players registered."); return; }
-            foreach (var o in _monuments.Concat(_buffers))
+            foreach (var o in _monuments)
                 if (!SpawnObjective(o)) { Cancel("Valor cancelled: an objective could not spawn."); return; }
             _phase = Phase.Active;
             _ends = World.Time + 1200000;
+            _secondWaveAt = World.Time + 600000;
             _scoreAt = World.Time + _settings.ScoreIntervalSeconds * 1000;
             int redLevels = 0, blueLevels = 0, redCount = 0, blueCount = 0;
             foreach (var player in _applications.OrderByDescending(p => p.Level).ThenBy(p => p.Name))
@@ -476,6 +583,7 @@ namespace Server.MirEnvir
             foreach (var applicant in _applications) applicant.ExpireTimer("ValorRegistration");
             _applications.Clear();
             if (redCount == 0 || blueCount == 0) { Cancel("Valor cancelled: both teams could not enter."); return; }
+            if (!StartWave(1)) { Cancel("Valor cancelled: a monster wave could not spawn."); return; }
             Announce("Battlefield of Valor has started! First to 7,500 points wins; time limit 20 minutes.");
             SendStatus(true);
         }
@@ -528,6 +636,8 @@ namespace Server.MirEnvir
             SetMonumentProgress(_monuments[0], out packet.SunDamage, out packet.SunHealth, out packet.SunAttacker);
             SetMonumentProgress(_monuments[1], out packet.MoonDamage, out packet.MoonHealth, out packet.MoonAttacker);
             SetMonumentProgress(_monuments[2], out packet.LightningDamage, out packet.LightningHealth, out packet.LightningAttacker);
+            packet.RedMonsters = _waveMonsters.Count(o => o.Side == ValorTeam.Red);
+            packet.BlueMonsters = _waveMonsters.Count(o => o.Side == ValorTeam.Blue);
             foreach (var member in _members.Values)
                 if (member.Player.Node != null) member.Player.Enqueue(packet);
         }
@@ -543,7 +653,7 @@ namespace Server.MirEnvir
         }
 
         // The battlefield monuments have event health independent of their database templates.
-        // Buff monsters continue using their configured database health.
+        // Wave monsters and bosses use their configured database health.
         private static int MonumentHealth(Objective objective) => objective.Id == 575 ? 300
             : objective.Id == 576 || objective.Id == 577 ? 100 : 0;
 
@@ -568,8 +678,12 @@ namespace Server.MirEnvir
 
         private void Reset()
         {
-            foreach (var o in _monuments.Concat(_buffers))
-            { RemoveMonster(o.Monster); o.Monster = null; o.Owner = ValorTeam.None; o.LastDamager = null; o.RespawnAt = 0; }
+            foreach (var o in _monuments.Concat(_bosses))
+            { RemoveMonster(o.Monster); o.Monster = null; o.Owner = ValorTeam.None; o.LastDamager = null; o.RespawnAt = 0; o.BossSpawned = false; }
+            foreach (var o in _waveMonsters) RemoveMonster(o.Monster);
+            _waveMonsters.Clear();
+            _waveNumber = 0;
+            _secondWaveAt = 0;
             _applications.Clear();
             _members.Clear();
             _redScore = _blueScore = 0;

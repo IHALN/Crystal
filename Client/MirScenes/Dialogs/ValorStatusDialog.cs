@@ -157,8 +157,8 @@ namespace Client.MirScenes.Dialogs
             _health[1].Text = status.SunHealth.ToString();
             _damage[2].Text = status.LightningDamage.ToString();
             _health[2].Text = status.LightningHealth.ToString();
-            _blueCount.Text = status.Rows.Where(row => row.Team == 2).Sum(row => row.Kills).ToString();
-            _redCount.Text = status.Rows.Where(row => row.Team == 1).Sum(row => row.Kills).ToString();
+            _blueCount.Text = status.BlueMonsters.ToString();
+            _redCount.Text = status.RedMonsters.ToString();
             _sun.Index = MonumentSprite(983, status.SunAttacker);
             _moon.Index = MonumentSprite(980, status.MoonAttacker);
             _lightning.Index = MonumentSprite(986, status.LightningAttacker);

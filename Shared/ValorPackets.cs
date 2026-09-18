@@ -13,6 +13,7 @@ namespace ServerPackets
         public override short Index => (short)ServerPacketIds.ValorStatus;
         public bool Active;
         public int RedScore, BlueScore, Seconds;
+        public int RedMonsters, BlueMonsters;
         public byte Winner;
         // Each monument reports damage dealt and health remaining, plus the attacking team.
         public int SunDamage, SunHealth, MoonDamage, MoonHealth, LightningDamage, LightningHealth;
@@ -23,6 +24,7 @@ namespace ServerPackets
         {
             Active = reader.ReadBoolean();
             RedScore = reader.ReadInt32(); BlueScore = reader.ReadInt32(); Seconds = reader.ReadInt32();
+            RedMonsters = reader.ReadInt32(); BlueMonsters = reader.ReadInt32();
             Winner = reader.ReadByte();
             SunDamage = reader.ReadInt32(); SunHealth = reader.ReadInt32();
             MoonDamage = reader.ReadInt32(); MoonHealth = reader.ReadInt32();
@@ -41,6 +43,7 @@ namespace ServerPackets
         {
             writer.Write(Active);
             writer.Write(RedScore); writer.Write(BlueScore); writer.Write(Seconds);
+            writer.Write(RedMonsters); writer.Write(BlueMonsters);
             writer.Write(Winner);
             writer.Write(SunDamage); writer.Write(SunHealth);
             writer.Write(MoonDamage); writer.Write(MoonHealth);

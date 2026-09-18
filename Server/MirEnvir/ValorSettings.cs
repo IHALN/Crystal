@@ -12,7 +12,8 @@ namespace Server.MirEnvir
         public int MonumentRadius { get; set; } = 8;
         public int CompletionHonor { get; set; } = 50;
         public int VictoryHonor { get; set; } = 100;
-        public int BufferDurationSeconds { get; set; } = 60;
+        public int BufferDurationSeconds { get; set; } = 300;
+        public int BufferRadius { get; set; } = 8;
         public int BufferAttackBonus { get; set; } = 10;
         public int BufferDefenceBonus { get; set; } = 10;
         public List<ValorReward> Rewards { get; set; } = new List<ValorReward>();
@@ -36,6 +37,7 @@ namespace Server.MirEnvir
                 || settings.CompletionHonor < 0 || settings.CompletionHonor > 200000
                 || settings.VictoryHonor < 0 || settings.VictoryHonor > 200000
                 || settings.BufferDurationSeconds < 1 || settings.BufferDurationSeconds > 1200
+                || settings.BufferRadius < 1 || settings.BufferRadius > 30
                 || settings.BufferAttackBonus < 0 || settings.BufferAttackBonus > 1000
                 || settings.BufferDefenceBonus < 0 || settings.BufferDefenceBonus > 1000
                 || settings.Rewards == null || settings.Rewards.Any(r => r == null

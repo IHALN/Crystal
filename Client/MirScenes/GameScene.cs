@@ -3831,7 +3831,10 @@ namespace Client.MirScenes
             if (p.ObjectID == User.ObjectID) return;
 
             if (MapControl.Objects.TryGetValue(p.ObjectID, out var ob))
+            {
                 ob.NameColour = p.NameColour;
+                if (ob is MonsterObject monster) monster.RefreshValorMonumentEffect();
+            }
         }
 
         private void ObjectGuildNameChanged(S.ObjectGuildNameChanged p)

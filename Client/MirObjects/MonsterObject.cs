@@ -8,6 +8,38 @@ namespace Client.MirObjects
 {
     class MonsterObject : MapObject
     {
+        private static readonly FrameSet ValorMonumentFrames = new FrameSet
+        {
+            { MirAction.Standing, new Frame(0, 2, 0, 450) },
+            { MirAction.Struck, new Frame(0, 2, 0, 200) },
+            { MirAction.Die, new Frame(0, 1, 0, 200) },
+            { MirAction.Dead, new Frame(0, 1, 0, 1000) }
+        };
+        private Effect _valorMonumentEffect;
+
+        private bool IsValorMonument => BaseImage == Monster.MoonStone || BaseImage == Monster.SunStone
+            || BaseImage == Monster.LightningStone;
+
+        public void RefreshValorMonumentEffect()
+        {
+            if (!IsValorMonument) return;
+            if (_valorMonumentEffect != null)
+            {
+                _valorMonumentEffect.Remove();
+                _valorMonumentEffect = null;
+            }
+            if (!Settings.Effect || Dead || BodyLibrary == null) return;
+
+            bool blue = NameColour.ToArgb() == Color.Blue.ToArgb();
+            bool red = NameColour.ToArgb() == Color.Red.ToArgb();
+            int start = BaseImage == Monster.LightningStone
+                ? (blue ? 10 : red ? 18 : 2)
+                : (blue ? 20 : red ? 30 : 10);
+            _valorMonumentEffect = new Effect(BodyLibrary, start, 8, 800, this) { Repeat = true };
+            Effects.Add(_valorMonumentEffect);
+            GameScene.Scene.MapControl.TextureValid = false;
+        }
+
         public override ObjectType Race
         {
             get { return ObjectType.Monster; }
@@ -270,6 +302,11 @@ namespace Client.MirObjects
                 case Monster.CaveStatue:
                     Frames = FrameSet.CaveStatue[(byte)Direction];
                     break;
+                case Monster.MoonStone:
+                case Monster.SunStone:
+                case Monster.LightningStone:
+                    Frames = ValorMonumentFrames;
+                    break;
                 default:
                     if (BodyLibrary != null)
                     {
@@ -321,6 +358,7 @@ namespace Client.MirObjects
                 }
             }
 
+            RefreshValorMonumentEffect();
             ProcessBuffs();
         }
 

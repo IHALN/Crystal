@@ -17,13 +17,20 @@ packets, HUD, scoreboard, honor currency and NPC actions.
    `NoDropMonster`. Set `NoReconnect` with return map `0`. Make small safe zones
    at the team spawns only; keep monument and monster wave locations outside safe zones.
    The event also prevents spawn zones from replacing a player's town bind.
-4. Create the three monument **database indices** below. The event looks up indices
-   575–577 and overrides their HP: Sun 300, Moon 100 and Lightning 100. The monument
-   AI is stationary and passive. Also create monster templates with positive HP and
+4. Create the three monument **database indices** below. Set their `Image` values to
+   350 for Sun, 349 for Moon, and 351 for Lightning. The event looks up indices
+   575–577 and overrides their HP: Sun 300, Moon 100 and Lightning 100. Their own
+   stationary AI takes one HP per successful physical hit, like `ChestnutTree`;
+   they do not regenerate, attack, move or take poison damage. Also create monster
+   templates with positive HP and
    the exact names in the wave list below, including `MinotaurKing`. The event uses
    normal monster AI for waves and bosses; event spawns do not award normal XP,
    drops, quests or death scripts. Do not add permanent map respawns for them.
-5. Keep `Data/Title.Lib` (image 725) and `Data/Prguse2.Lib` (Valor HUD images
+5. Put the supplied `349.Lib`, `350.Lib` and `351.Lib` in the client's configured
+   monster library directory. Their standing images are frames 0–1. Moon and Sun
+   use frames 10–17 (neutral), 20–27 (Blue), and 30–37 (Red) for their looping
+   ownership effect. Lightning uses 2–9 (neutral), 10–17 (Blue), and 18–25 (Red).
+   Keep `Data/Title.Lib` (image 725) and `Data/Prguse2.Lib` (Valor HUD images
    969–1121) in the client. Update both Shared.dll and the
    server/client executables together because the new packet is used by both.
 6. Place a new NPC named `Valor_Registration` on map `0`, at **327,258**, and assign

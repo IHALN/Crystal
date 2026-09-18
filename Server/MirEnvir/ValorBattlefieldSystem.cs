@@ -18,24 +18,65 @@ namespace Server.MirEnvir
             public int Personal, Kills, Deaths;
             public long ReviveAt, PreviousBrownTime;
         }
-        private sealed class ValorMonster : MonsterObject
+        private sealed class ValorMonument : MonsterObject
         {
             private readonly int _monumentHealth;
-            public ValorMonster(MonsterInfo info, int monumentHealth = 0) : base(info)
+            protected override bool CanMove => false;
+            protected override bool CanAttack => false;
+            protected override bool CanRegen => false;
+
+            public ValorMonument(MonsterInfo info, int monumentHealth) : base(info)
             {
                 _monumentHealth = monumentHealth;
+                Direction = MirDirection.Up;
             }
             public override void RefreshAll()
             {
                 base.RefreshAll();
-                if (_monumentHealth > 0) Stats[Stat.HP] = _monumentHealth;
+                Stats[Stat.HP] = _monumentHealth;
             }
-            protected override void ProcessAI()
-            {
-                ProcessRegen();
-                ProcessPoison();
-            }
+
+            protected override void Attack() { }
+            protected override void FindTarget() { }
+            protected override void ProcessTarget() { }
+            protected override void ProcessSearch() { }
+            protected override void ProcessRoam() { }
+            protected override void ProcessRegen() { }
+            public override void Turn(MirDirection direction) { }
+            public override bool Walk(MirDirection direction) => false;
             public override int Pushed(MapObject pusher, MirDirection direction, int distance) => 0;
+            public override void ApplyPoison(Poison poison, MapObject caster = null, bool noResist = false, bool ignoreDefence = true) { }
+            public override void PoisonDamage(int amount, MapObject attacker) { }
+            public override int Struck(int damage, DefenceType type = DefenceType.ACAgility) => 0;
+
+            private int Hit(MapObject attacker, int damage, DefenceType type)
+            {
+                if (attacker == null || Dead || damage <= 0 || type != DefenceType.ACAgility
+                    || !Envir.Main.Valor.CanAttackObjective(this, attacker)) return 0;
+                // As with ChestnutTree, one successful physical hit removes one HP.
+                if (Envir.Random.Next(Stats[Stat.Agility] + 1) > attacker.Stats[Stat.Accuracy]) return 0;
+                if (GetAttackPower(Stats[Stat.MinAC], Stats[Stat.MaxAC]) >= damage) return 0;
+                Envir.Main.Valor.RecordDamage(this, attacker);
+                Broadcast(new S.ObjectStruck { ObjectID = ObjectID, AttackerID = attacker.ObjectID,
+                    Direction = Direction, Location = CurrentLocation });
+                ChangeHP(-1);
+                return 1;
+            }
+
+            public override int Attacked(HumanObject attacker, int damage, DefenceType type = DefenceType.ACAgility,
+                bool damageWeapon = true)
+            {
+                int result = Hit(attacker, damage, type);
+                if (result != 0)
+                {
+                    if (damageWeapon) attacker.DamageWeapon();
+                    attacker.GatherElement();
+                }
+                return result;
+            }
+
+            public override int Attacked(MonsterObject attacker, int damage, DefenceType type = DefenceType.ACAgility)
+                => Hit(attacker, damage, type);
         }
         private sealed class Objective
         {
@@ -485,7 +526,7 @@ namespace Server.MirEnvir
 
         private bool SpawnObjective(Objective objective)
         {
-            var monster = new ValorMonster(World.GetMonsterInfo(objective.Id), MonumentHealth(objective));
+            var monster = new ValorMonument(World.GetMonsterInfo(objective.Id), MonumentHealth(objective));
             if (monster == null || !monster.Spawn(_map, objective.Location)) return false;
             objective.Monster = monster;
             objective.LastDamager = null;

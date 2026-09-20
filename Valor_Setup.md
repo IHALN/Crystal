@@ -163,6 +163,25 @@ column shows the pre-cap completion/victory bonus; Honor shows the actual balanc
 
 ## Reward exchange
 
+### Honor shop NPC
+
+Add an `[@HONORBUY]` link to an NPC's main script page and list the items for sale in that NPC's `[TRADE]` section, as for a regular goods shop. For example:
+
+```text
+[@MAIN]
+<Honor Shop/@HONORBUY>
+
+[@HONORBUY]
+Choose an item to buy with Honor Points.
+
+[TRADE]
+YourRewardItemName
+```
+
+Add the same item name under `Rewards` in `ValorSettings.json` with its `HonorCost`. The shop displays only items present in both the NPC's goods list and `Rewards`; its displayed price and payment use Honor points rather than the item's Gold price. `HonorCost` is the cost per item, so a stack costs `HonorCost` multiplied by its quantity. Players can see their current Honor balance in the shop. Honor is stored per character, with no additional database field.
+
+The existing `VALORREWARD` NPC action remains available for scripted reward links.
+
 The guide does not supply reward names or prices, so the initial reward list is empty.
 Set `Rewards` in `ValorSettings.json`, for example using **your real ItemInfo name**:
 

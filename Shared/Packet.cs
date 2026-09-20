@@ -906,6 +906,8 @@ public abstract class Packet
                 return new S.IntelligentCreaturePickup();
             case (short)ServerPacketIds.NPCPearlGoods:
                 return new S.NPCPearlGoods();
+            case (short)ServerPacketIds.NPCHonorGoods:
+                return new S.NPCHonorGoods();
             case (short)ServerPacketIds.FriendUpdate:
                 return new S.FriendUpdate();
             case (short)ServerPacketIds.LoverUpdate:

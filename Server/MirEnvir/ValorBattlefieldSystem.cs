@@ -355,6 +355,44 @@ namespace Server.MirEnvir
             }
         }
 
+        public int GetHonor(PlayerObject player)
+        {
+            lock (_sync) return _honor.Get(player.Info.Index);
+        }
+
+        public void BuyShopReward(PlayerObject player, ItemInfo info, ushort count)
+        {
+            lock (_sync)
+            {
+                if (player == null || player.Dead || player.NPCPage == null
+                    || !string.Equals(player.NPCPage.Key, NPCScript.HonorBuyKey, StringComparison.OrdinalIgnoreCase)
+                    || info == null || count == 0 || count > info.StackSize) return;
+                try
+                {
+                    var reward = ValorSettings.Load().Rewards.FirstOrDefault(r =>
+                        World.GetItemInfo(r.Item)?.Index == info.Index);
+                    if (reward == null) return;
+                    long cost = (long)reward.HonorCost * count;
+                    int balance = _honor.Get(player.Info.Index);
+                    if (cost > balance)
+                    { player.ReceiveChat("You do not have enough Honor.", ChatType.System); return; }
+                    var item = World.CreateFreshItem(info);
+                    if (item == null) return;
+                    item.Count = count;
+                    if (!player.CanGainItem(item))
+                    { player.ReceiveChat("Not enough inventory space or carrying capacity.", ChatType.System); return; }
+                    _honor.SetMany(new Dictionary<int, int> { [player.Info.Index] = balance - (int)cost });
+                    player.GainItem(item);
+                    player.Enqueue(new S.NPCHonorGoods { BalanceOnly = true, Balance = balance - (int)cost });
+                }
+                catch (Exception ex)
+                {
+                    player.ReceiveChat("Honor purchase failed: " + ex.Message, ChatType.System);
+                    MessageQueue.Enqueue("Honor purchase: " + ex);
+                }
+            }
+        }
+
         public void Exchange(PlayerObject player, int rewardIndex)
         {
             lock (_sync)

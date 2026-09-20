@@ -2032,6 +2032,9 @@ namespace Client.MirScenes
                 case (short)ServerPacketIds.NPCPearlGoods:
                     NPCPearlGoods((S.NPCPearlGoods)p);
                     break;
+                case (short)ServerPacketIds.NPCHonorGoods:
+                    NPCHonorGoods((S.NPCHonorGoods)p);
+                    break;
                 case (short)ServerPacketIds.FriendUpdate:
                     FriendUpdate((S.FriendUpdate)p);
                     break;
@@ -4218,16 +4221,19 @@ namespace Client.MirScenes
             {
                 case PanelType.Buy:
                     NPCGoodsDialog.UsePearls = false;
+                    NPCGoodsDialog.UseHonor = false;
                     NPCGoodsDialog.NewGoods(p.List);
                     NPCGoodsDialog.Show();
                     break;
                 case PanelType.BuySub:
                     NPCSubGoodsDialog.UsePearls = false;
+                    NPCSubGoodsDialog.UseHonor = false;
                     NPCSubGoodsDialog.NewGoods(p.List);
                     NPCSubGoodsDialog.Show();
                     break;
                 case PanelType.Craft:
                     NPCCraftGoodsDialog.UsePearls = false;
+                    NPCCraftGoodsDialog.UseHonor = false;
                     NPCCraftGoodsDialog.NewGoods(p.List);
                     NPCCraftGoodsDialog.Show();
                     CraftDialog.Show();
@@ -4247,7 +4253,21 @@ namespace Client.MirScenes
             if (!NPCDialog.Visible) return;
 
             NPCGoodsDialog.UsePearls = true;
+            NPCGoodsDialog.UseHonor = false;
             NPCGoodsDialog.NewGoods(p.List);
+            NPCGoodsDialog.Show();
+        }
+
+        private void NPCHonorGoods(S.NPCHonorGoods p)
+        {
+            NPCGoodsDialog.UpdateHonorBalance(p.Balance);
+            if (p.BalanceOnly || !NPCDialog.Visible) return;
+
+            foreach (var item in p.List) item.Info = GetItemInfo(item.ItemIndex);
+            NPCRate = 1;
+            NPCPanelType = PanelType.Buy;
+            HideAddedStoreStats = false;
+            NPCGoodsDialog.NewHonorGoods(p.List, p.Prices, p.Balance);
             NPCGoodsDialog.Show();
         }
 

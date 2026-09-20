@@ -6159,6 +6159,43 @@ namespace ServerPackets
         }
     }
 
+    public sealed class NPCHonorGoods : Packet
+    {
+        public override short Index => (short)ServerPacketIds.NPCHonorGoods;
+        public bool BalanceOnly;
+        public int Balance;
+        public List<UserItem> List = new List<UserItem>();
+        // HonorCost is a per-item cost, separate from ItemInfo.Price.
+        public List<int> Prices = new List<int>();
+
+        protected override void ReadPacket(BinaryReader reader)
+        {
+            BalanceOnly = reader.ReadBoolean();
+            Balance = reader.ReadInt32();
+            int count = reader.ReadInt32();
+            if (count < 0 || count > 1000) throw new InvalidDataException("Invalid Honor shop item count.");
+            for (int i = 0; i < count; i++)
+            {
+                List.Add(new UserItem(reader));
+                Prices.Add(reader.ReadInt32());
+            }
+        }
+
+        protected override void WritePacket(BinaryWriter writer)
+        {
+            if (List.Count != Prices.Count || List.Count > 1000)
+                throw new InvalidDataException("Invalid Honor shop prices.");
+            writer.Write(BalanceOnly);
+            writer.Write(Balance);
+            writer.Write(List.Count);
+            for (int i = 0; i < List.Count; i++)
+            {
+                List[i].Save(writer);
+                writer.Write(Prices[i]);
+            }
+        }
+    }
+
     public sealed class FriendUpdate : Packet
     {
         public override short Index

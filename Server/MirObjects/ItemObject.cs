@@ -38,6 +38,8 @@ namespace Server.MirObjects
 
         public uint Gold;
         public UserItem Item;
+        public bool IsMonsterDrop;
+        public string DropMonsterName = string.Empty;
 
 
         public override int Health
@@ -58,6 +60,11 @@ namespace Server.MirObjects
                 ExpireTime = Envir.Time + Settings.ItemTimeOut * Settings.Minute;
 
             Item = item;
+            if (dropper is MonsterObject monster)
+            {
+                IsMonsterDrop = true;
+                DropMonsterName = monster.Name;
+            }
 
             if (Item.IsAdded)
                 NameColour = Color.Cyan;
@@ -85,6 +92,11 @@ namespace Server.MirObjects
             ExpireTime = Envir.Time + Settings.ItemTimeOut * Settings.Minute;
 
             Item = item;
+            if (dropper is MonsterObject monster)
+            {
+                IsMonsterDrop = true;
+                DropMonsterName = monster.Name;
+            }
 
 			if (Item.IsAdded)
 				NameColour = Color.Cyan;
@@ -371,7 +383,16 @@ namespace Server.MirObjects
                         Name = Item.Count > 1 ? string.Format("{0} ({1})", Name, Item.Count) : Name,
                         NameColour = NameColour,
                         Location = CurrentLocation,
-                        Image = Item.Image
+                        Image = Item.Image,
+                        grade = Item.Grade,
+                        ItemIndex = Item.Info.Index,
+                        IsMonsterDrop = IsMonsterDrop,
+                        IsBookDrop = IsMonsterDrop && Item.Info.Type == ItemType.Book,
+                        DropMonsterName = IsMonsterDrop ? DropMonsterName : string.Empty,
+                        BookSpell = Item.Info.Type == ItemType.Book ? Item.Info.Shape : (short)0,
+                        BookRequiredClass = Item.Info.Type == ItemType.Book ? Item.Info.RequiredClass : RequiredClass.None,
+                        BookRequiredType = Item.Info.Type == ItemType.Book ? Item.Info.RequiredType : RequiredType.Level,
+                        BookRequiredAmount = Item.Info.Type == ItemType.Book ? Item.Info.RequiredAmount : (byte)0
                     };
 
             return new S.ObjectGold

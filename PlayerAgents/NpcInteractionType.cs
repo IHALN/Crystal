@@ -1,0 +1,9 @@
+public enum NpcInteractionType
+{
+    General,
+    Buying,
+    Selling,
+    Repairing,
+    Storing,
+    GuildCreation
+}

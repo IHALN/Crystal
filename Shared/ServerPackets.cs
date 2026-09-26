@@ -2138,6 +2138,14 @@ namespace ServerPackets
         public Point Location;
         public ushort Image;
         public ItemGrade grade;
+        public int ItemIndex;
+        public bool IsMonsterDrop;
+        public bool IsBookDrop;
+        public string DropMonsterName = string.Empty;
+        public short BookSpell;
+        public RequiredClass BookRequiredClass;
+        public RequiredType BookRequiredType;
+        public byte BookRequiredAmount;
 
 
         protected override void ReadPacket(BinaryReader reader)
@@ -2148,6 +2156,14 @@ namespace ServerPackets
             Location = new Point(reader.ReadInt32(), reader.ReadInt32());
             Image = reader.ReadUInt16();
             grade = (ItemGrade)reader.ReadByte();
+            ItemIndex = reader.ReadInt32();
+            IsMonsterDrop = reader.ReadBoolean();
+            IsBookDrop = reader.ReadBoolean();
+            DropMonsterName = reader.ReadString();
+            BookSpell = reader.ReadInt16();
+            BookRequiredClass = (RequiredClass)reader.ReadByte();
+            BookRequiredType = (RequiredType)reader.ReadByte();
+            BookRequiredAmount = reader.ReadByte();
 		}
 
         protected override void WritePacket(BinaryWriter writer)
@@ -2159,6 +2175,14 @@ namespace ServerPackets
             writer.Write(Location.Y);
             writer.Write(Image);
             writer.Write((byte)grade);
+            writer.Write(ItemIndex);
+            writer.Write(IsMonsterDrop);
+            writer.Write(IsBookDrop);
+            writer.Write(DropMonsterName ?? string.Empty);
+            writer.Write(BookSpell);
+            writer.Write((byte)BookRequiredClass);
+            writer.Write((byte)BookRequiredType);
+            writer.Write(BookRequiredAmount);
 		}
     }
     public sealed class ObjectGold : Packet

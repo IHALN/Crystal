@@ -1,0 +1,12 @@
+{
+  "ServerIP": "127.0.0.1",
+  "ServerPort": 7000,
+  "PlayerCount": 500,
+  "ConcurrentLogins": 2,
+  "AutoScale": false,
+  "MaximumConnections": 500,
+  "AutoScaleMinCpu": 40.0,
+  "AutoScaleMaxCpu": 75.0,
+  "AutoScaleBatchSize": 10,
+  "Debug": false
+}
